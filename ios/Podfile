@@ -79,6 +79,10 @@ target 'kc_admin_app' do
 
   pod 'RNVectorIcons', :path => '../node_modules/react-native-vector-icons'
 
+  pod 'RNCAsyncStorage', :path => '../node_modules/@react-native-community/async-storage'
+
+  pod 'RNDateTimePicker', :path => '../node_modules/@react-native-community/datetimepicker'
+
   target 'kc_admin_appTests' do
     inherit! :complete
     # Pods for testing

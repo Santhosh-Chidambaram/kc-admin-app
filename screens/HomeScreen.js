@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useContext,useMemo } from "react";
 import {
   View,
   Text,
@@ -7,16 +7,25 @@ import {
   ScrollView,
   SafeAreaView,
   StatusBar,
-  Dimensions
+  Dimensions,
+  RefreshControl
 } from "react-native";
 import ProgressCircle from "react-native-progress-circle";
 import { apiUrl } from "../Constants";
-import EIcon from 'react-native-vector-icons/Entypo'
 import Icon from 'react-native-vector-icons/FontAwesome'
+import MCIcon from 'react-native-vector-icons/MaterialCommunityIcons'
+import { AuthContext } from "./context";
+
+
 
 
 //Home Screen
 function HomeScreen({ navigation }) {
+  //Context
+  const authContext = useContext(AuthContext)
+  const {token} = authContext;
+
+  //States
   const [dash, setDash] = useState({
     total_amount: 0,
     due_amount: 0,
@@ -31,16 +40,24 @@ function HomeScreen({ navigation }) {
     total: 0,
   });
 
-  useEffect(() => {
-    //Getting Dashboard details
-    async function getShareAmount() {
-      try {
-        let response = await fetch(apiUrl + "api/shareamount/");
-        let json = await response.json();
+   //Getting Dashboard details
+   async function getShareAmount() {
+      
+    try {
+      let response = await fetch(apiUrl + "api/shareamount/",{
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+          Authorization: "Token "+token,
+        },
+      });
+      let json = await response.json();
+      if(response.ok){
         let coll_percent = (
           (json.collected_amount / json.total_share) *
           100
-        ).toFixed(1);
+        ).toFixed(0);
         setDash({
           total_amount: json.total_share,
           due_amount: json.due_amount,
@@ -54,15 +71,33 @@ function HomeScreen({ navigation }) {
           customers: json.customers,
           total: json.total,
         });
-      } catch (error) {
-        console.error(error);
-      }
-    }
 
-    setTimeout(() => {
-      getShareAmount();
-    }, 2000);
-  }, []);
+      }
+      else{
+        showToast(json)
+
+      }
+      
+    } catch (error) {
+      showToast(error.messages)
+    }
+  }
+
+  //Toast
+  const showToast = (res) => {
+
+    ToastAndroid.showWithGravityAndOffset(
+      res,
+      ToastAndroid.LONG,
+      ToastAndroid.BOTTOM,
+      25,
+      150
+    );
+  };
+  useEffect(() =>{
+    getShareAmount();
+  },[])
+ 
   return (
     <SafeAreaView>
       <ScrollView>
@@ -78,7 +113,7 @@ function HomeScreen({ navigation }) {
                 shadowColor="#999"
                 bgColor="#fff"
               >
-                <Text style={{ fontSize: 18, textAlign: "center" }}>
+                <Text style={{ fontSize: 20, textAlign: "center" }}>
                   {dash.coll_percent}%
                 </Text>
               </ProgressCircle>
@@ -100,28 +135,51 @@ function HomeScreen({ navigation }) {
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.countBox}
+            style={styles.dashBox}
           >
+            <View style={{
+                
+                position: "absolute",
+                top: 4,
+                left:120,
+                }}>
             <Text
               style={{
                 fontWeight: "bold",
                 fontSize: 19,
                 color: "#8e2de2",
-                textAlign: "center",
-                position: "absolute",
-                top: 4,
-                paddingBottom: 20,
+                
               }}
             >
               Payment Details
             </Text>
+
+            </View>
+            
+            <View  
+            style={{ 
+              
+               
+               backgroundColor:'#8e2de2',
+               height:80,
+               width:80,
+               borderRadius:50,
+               justifyContent:'center',
+               alignItems:'center',
+               marginTop:12,
+              
+              }}
+               >
             <Icon
               name="group"
-              size={64}
-              color="#8e2de2"
-              style={{ position: "absolute", left: 30 }}
+              size={45}
+              color="white"
+             
             />
-            <View style={{ paddingTop: 10 }}>
+
+            </View>
+           
+            <View style={{paddingTop:10}}>
               <Text style={styles.cnt}>
                 Total : <Text style={styles.cntValue}>{dash.total}</Text>
               </Text>
@@ -132,30 +190,49 @@ function HomeScreen({ navigation }) {
                 Unpaid : <Text style={styles.cntValue}>{dash.unpaidcount}</Text>
               </Text>
             </View>
+
           </TouchableOpacity>
           <TouchableOpacity
-            style={styles.stb}
+            style={styles.dashBox}
+            onPress={() => navigation.navigate('Setupbox')}
           >
+            <View style={{
+                position: "absolute",
+                top: 4,
+                left:120,}}>
             <Text
               style={{
                 fontWeight: "bold",
                 fontSize: 19,
                 color: "#8e2de2",
-                textAlign: "center",
-                position: "absolute",
-                top: 4,
-                paddingBottom: 20,
+                
+    
               }}
             >
-              Setupbox Details
+               Setupbox Details
             </Text>
-            <EIcon
-              name="inbox"
-              size={64}
-              color="#8e2de2"
-              style={{ position: "absolute", left: 30 }}
+            </View>
+           
+             
+            <View style={{
+                backgroundColor:'#8e2de2',
+                borderRadius:50,
+                height:80,
+                width:80,
+                justifyContent:'center',
+                alignItems:'center',
+                marginTop:12,
+                
+                }}>
+            <MCIcon
+              name="set-top-box"
+              size={60}
+              color="white"
+              
             />
-            <View style={{ paddingTop: 10 }}>
+            </View>
+            
+            <View style={{paddingTop:10}}>
               <Text style={styles.cnt}>
                 Total : <Text style={styles.cntValue}>{dash.total}</Text>
               </Text>
@@ -169,28 +246,48 @@ function HomeScreen({ navigation }) {
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.coll}
+            style={styles.dashBox}
             onPress={() => navigation.navigate("Daily Collections")}
           >
+            <View style={{
+                position: "absolute",
+                top: 4,
+                left:120,
+                }}>
             <Text
               style={{
                 fontWeight: "bold",
                 fontSize: 19,
                 color: "#8e2de2",
                 textAlign: "center",
-                position: "absolute",
-                top: 4,
-                paddingBottom: 20,
+                
               }}
             >
               Todays Collection
             </Text>
+
+            </View>
+            
+            <View style={{
+                backgroundColor:'#8e2de2',
+                borderRadius:50,
+                height:80,
+                width:80,
+                justifyContent:'center',
+                alignItems:'center',
+                marginTop:12,
+                
+                }}
+            >
             <Icon
               name="rupee"
-              size={54}
-              color="#8e2de2"
-              style={{ position: "absolute", left: 30 }}
+              size={50}
+              color="white"
+              
             />
+
+            </View>
+            
             <View style={{ paddingTop: 10 }}>
               <Text style={styles.cnt}>
                 Amount : <Text style={styles.cntValue}>Rs.{dash.amount}</Text>
@@ -212,8 +309,9 @@ export default HomeScreen;
 const styles = StyleSheet.create({
   container: {
     backgroundColor: "#8e2de2",
-    height: Dimensions.get('screen').height,
+    height: "100%",
     alignItems: "center",
+    marginBottom:20,
   },
   box: {
     flexDirection: "row",
@@ -243,12 +341,12 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: "black",
     paddingBottom: 5,
-    width: "95%",
+    width: "92%",
   },
   amtValue: {
     fontSize: 20,
     fontWeight: "bold",
-    color: "#c31432",
+    color: "#8e2de2",
   },
   collected:{
     fontSize: 20,
@@ -262,9 +360,10 @@ const styles = StyleSheet.create({
     color: "#ec2F4B",
 
   },
-  countBox: {
+  dashBox: {
     marginTop: 30,
-    justifyContent: "center",
+    flexDirection:'row',
+    justifyContent: "space-around",
     alignItems: "center",
     padding: 25,
     width: "95%",
@@ -283,47 +382,13 @@ const styles = StyleSheet.create({
     fontSize: 19,
     fontWeight: "bold",
     color: "black",
+    
   },
   cntValue: {
     fontSize: 22,
     fontWeight: "bold",
-    color: "#f857a6",
+    color: "#f80759",
+    
   },
-  stb: {
-    marginTop: 30,
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 25,
-    width: "95%",
-    backgroundColor: "white",
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 6,
-    },
-    shadowOpacity: 0.37,
-    shadowRadius: 7.49,
-
-    elevation: 12,
-    borderRadius: 20,
-  },
-  coll: {
-    marginTop: 30,
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 26,
-    width: "95%",
-    backgroundColor: "white",
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 6,
-    },
-    shadowOpacity: 0.37,
-    shadowRadius: 7.49,
-
-    elevation: 12,
-    borderRadius: 20,
   
-  },
 });

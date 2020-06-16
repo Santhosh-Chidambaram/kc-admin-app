@@ -1,10 +1,17 @@
 
-import * as React from 'react';
-import {  Text, View } from 'react-native';
+import React,{useState,useEffect, createContext, useReducer} from 'react';
+import {  ToastAndroid, View } from 'react-native';
+import AsyncStorage from '@react-native-community/async-storage';
+import { Modal,
+  Portal,
+   Text,
+  Provider,ActivityIndicator,Colors,configureFonts, DefaultTheme } from 'react-native-paper';
+import MainState from './screens/Context/MainState'
 //Icons Imports
 import Icon from 'react-native-vector-icons/FontAwesome'
 import EIcon from 'react-native-vector-icons/Entypo'
 import Ionicon from 'react-native-vector-icons/Ionicons'
+
 //Navigators Imports
 import {NavigationContainer} from '@react-navigation/native'
 import {createStackNavigator} from '@react-navigation/stack'
@@ -13,18 +20,22 @@ import {createMaterialBottomTabNavigator} from '@react-navigation/material-botto
 
 //Screens Imports
 import HomeScreen from './screens/HomeScreen'
-import SearchScreen from './screens/SearchScreen'
 import CollectionScreen from './screens/CollectionScreen'
-import CustomerScreen from './screens/CustomerScreen'
+import CustomersScreen from './screens/CustomersScreen'
+import CustomerDetailScreen from './screens/CustomerDetailScreen';
+import AddCustomerScreen from './screens/AddCustomerScreen'
 import SetupboxScreen from './screens/SetupboxScreen'
 import CollectPaymentScreen from './screens/CollectPaymentScreen'
 import CollectedCustomerScreen from './screens/CollectedCustomerScreen'
 import PaymentDetailScreen from './screens/PaymentDetailScreen';
+import AuthScreen from './screens/AuthScreen';
+import {AuthContext} from './screens/context'
+import DrawerContent from './screens/DrawerContent'
 
 //Create Navigators
 const SideDrawer = createDrawerNavigator()
 const HomeStack = createStackNavigator()
-const SearchStack = createStackNavigator()
+const CustomersStack = createStackNavigator()
 const CustomerStack = createStackNavigator()
 const CollectionStack = createStackNavigator()
 const CollectPaymentStack = createStackNavigator()
@@ -62,8 +73,8 @@ const HomeStackScreen = ({navigation}) =>(
   </HomeStack.Navigator>
 )
 
-const SearchStackScreen = ({navigation}) =>(
-  <SearchStack.Navigator initialRouteName="Search"
+const CustomersStackScreen = ({navigation}) =>(
+  <CustomersStack.Navigator initialRouteName="Search"
   screenOptions={{
     headerTitleAlign:'center',
     headerStyle:{
@@ -75,19 +86,20 @@ const SearchStackScreen = ({navigation}) =>(
 
 
     },
-    headerLeft:() =>(
-      <Ionicon name="ios-menu" size={30} color="white" onPress={() => {
-        navigation.openDrawer()
-      }} 
-      style={{paddingLeft:20}}/>
-    )
+    // headerLeft:() =>(
+    //   <Ionicon name="ios-menu" size={30} color="white" onPress={() => {
+    //     navigation.openDrawer()
+    //   }} 
+    //   style={{paddingLeft:20}}/>
+    // )
   }}
   >
 
-    <SearchStack.Screen name='Search' component={SearchScreen}/>
-    <SearchStack.Screen name='Home' component={HomeScreen}/>
+    <CustomersStack.Screen name='Customers' component={CustomersScreen} options={{title:'Customer Detail',headerShown:false}}/>
+    <CustomersStack.Screen name='CustomerDetailScreen' component={CustomerDetailScreen} options={{title:'Customer Detail',headerShown:false}}/>
+    <CustomersStack.Screen name='AddCustomerScreen' component={AddCustomerScreen} options={{title:'Add Customer',headerShown:false}}/>
     
-  </SearchStack.Navigator>
+  </CustomersStack.Navigator>
 )
 
 const CustomerStackScreen = ({navigation}) =>(
@@ -237,19 +249,19 @@ const BottomTabScreen = () =>(
         options={{
           tabBarLabel: 'Home',
           tabBarIcon: ({ color }) => (
-            <EIcon name="home" color={color} size={28}/>
+            <EIcon name="home" color={color} size={26}/>
           ),
           tabBarColor:'#8e2de2'
         }}
       />
       <BottomTab.Screen
         name="Search"
-        component={SearchStackScreen}
+        component={CustomersStackScreen}
         options={{
-          tabBarLabel: 'Search',
-          tabBarColor:'#4364F7',
+          tabBarLabel: 'Customers',
+          tabBarColor:DefaultTheme.colors.primary,
           tabBarIcon: ({ color }) => (
-            <Icon name="search" size={28} color={color} />
+            <Icon name="user" size={28} color={color} />
           ),
         }}
       />
@@ -279,18 +291,149 @@ const BottomTabScreen = () =>(
   </BottomTab.Navigator>
 )
 
+//App Context 
+const fontConfig = {
+  default: {
+    regular: {
+      fontFamily: 'sans-serif',
+      fontWeight: 'normal',
+    },
+    medium: {
+      fontFamily: 'sans-serif-medium',
+      fontWeight: 'normal',
+    },
+    light: {
+      fontFamily: 'sans-serif-light',
+      fontWeight: 'normal',
+    },
+    thin: {
+      fontFamily: 'sans-serif-thin',
+      fontWeight: 'normal',
+    },
+  },
+};
+
+const theme = {
+  ...DefaultTheme,
+  fonts: configureFonts(fontConfig),
+};
+
+
+
+
+
+
 //Navigation Container
 export default function App(){
+
+
+  //states
+  const [authtoken,setAuthToken] = React.useState("")
+  const [visible,setVisible] = useState(false)
+  const [unpaid,setUnpaid] = useState(false)
+  const _showModal = () => setVisible(true);
+  const  _hideModal = () => setVisible(false);
+  
+  async function  retrieveToken() {
+  try {
+    let token = await AsyncStorage.getItem("usertoken");
+
+    if(token){
+      setTimeout(() =>{
+        _showModal()
+      },1000)
+      
+      setTimeout(() =>{
+        setAuthToken(token)
+        _hideModal()
+      },3000)
+      
+    }
+    
+  } catch (error) {
+    console.log("Something went wrong", error);
+  }
+}
+
+  
+const AutoLoginModal = () => (
+
+  <Portal>
+    <View style={{
+     flex:1,
+     alignItems:'center',
+     justifyContent:'center',
+     
+     
+ }}>
+    <Modal visible={visible} onDismiss={_hideModal}
+    contentContainerStyle={{
+      backgroundColor:'white',
+      justifyContent:'center',
+      alignItems:'center',
+      height:100,
+      width:300,
+      borderRadius:20,
+      marginLeft:'13%'
+    }}
+    >  
+      <ActivityIndicator animating={true} color={Colors.red800} size={40} />
+      <Text style={{paddingTop:5,fontSize:18,color:'purple'}}>Please wait user auto logging in</Text>
+    </Modal>
+
+    </View>
+    
+  </Portal>
+
+)
+
+    useEffect(() =>{
+      retrieveToken()
+    },[])
+
   return(
+    <AuthContext.Provider
+    value={{
+      setAuthToken:setAuthToken,
+      token:authtoken
+    }}
+    >
+    <MainState>
+    
     <NavigationContainer>
-      <SideDrawer.Navigator>
+    <Provider theme={theme}>
+       {
+        authtoken ?
+ 
+        <SideDrawer.Navigator drawerContent={props => <DrawerContent {...props} />}>
+        
         <SideDrawer.Screen name="Home" component={BottomTabScreen}/>
         <SideDrawer.Screen name="Collect Payment" component={CollectPaymentStackScreen}/>
         <SideDrawer.Screen name="Setupbox" component={SetupboxStackScreen}/>
         <SideDrawer.Screen name="Daily Collections" component={CollectedCustomerStackScreen} />
+       
 
       </SideDrawer.Navigator>
+      
+      :
+      <>
+       
+      <AuthScreen />
+      {
+        visible?
+        <AutoLoginModal/>
+        :null
+      }
+  
+      
+      </>
+      
 
+      }
+    </Provider>
     </NavigationContainer>
+    
+    </MainState>
+    </AuthContext.Provider>
   )
 }

@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect,useContext,useRef } from "react";
+import {Button} from 'react-native-paper'
 import {
   View,
   StyleSheet,
@@ -18,13 +19,23 @@ import {
 
 import moment from "moment";
 import { apiUrl } from '../Constants';
-
-
+import {AuthContext} from './context'
+import MICon from 'react-native-vector-icons/MaterialIcons'
+import * as Animatable from 'react-native-animatable'
+import { MainContext } from "./Context/MainContext";
 //Collect Component 
 
 export default function CollectPaymentScreen() {
-  
+
+  //Context States
+
+  const authContext = useContext(AuthContext)
+  const {token,cus_serverData} = authContext
+  const mainContext = useContext(MainContext)
+  const {customerlist} = mainContext;
+
   var date = moment().utcOffset("+05:30").format("YYYY-MM-DD");
+  const handleViewRef = useRef()
   //State
   const [modalVisible, setModalVisible] = useState(false);
   const [sendPaymentUpdate,setSendPaymentUpdate] =useState(false)
@@ -51,17 +62,30 @@ export default function CollectPaymentScreen() {
         headers: {
           Accept: "application/json",
           "Content-Type": "application/json",
-          //Authorization: "Token " + token,
+          Authorization: "Token " + token,
         },
         body: JSON.stringify({
           payment_date: cusdetail.payment_date,
           payment_status: cusdetail.payment_status,
           customer: cusdetail.cus_id,
-          collected_amount: cusdetail.payment_amount
+          collected_amount: cusdetail.payment_amount,
+          stb:cusdetail.boxno.toUpperCase()
         }),
       });
         
         if(response.ok){
+          setTimeout(() =>{
+            sendCollected()
+            SetCusDetail({
+              cus_id:'',
+              payment_amount:'',
+              payment_status:'paid',
+              payment_date:date,
+            });
+            
+            
+      
+          },2000)
             
 
         }else if(response.status == 400){
@@ -70,7 +94,8 @@ export default function CollectPaymentScreen() {
             cus_id:'',
             payment_amount:'',
             payment_status:'paid',
-            payment_date:date
+            payment_date:date,
+            boxno:''
           });
         }
  
@@ -82,45 +107,101 @@ export default function CollectPaymentScreen() {
     
     }
   }
+
   //Send Collected To Server
   async function sendCollected() {
-    console.log(cid)
-    // try {
-    //   let response = await fetch(apiUrl + "api/collectedcustomers", {
-    //     method: "POST",
-    //     headers: {
-    //       Accept: "application/json",
-    //       "Content-Type": "application/json",
-    //       //Authorization: "Token " + token,
-    //     },
-    //     body: JSON.stringify({
-    //       collected_amount: cusdetail.payment_amount,
-    //       customer: cusdetail.cus_id,
-    //       collector:cid,
-    //     }),
-    //   })
-    //   let data = await response.json()
-    //   if(response.ok){
-    //       setRes({
-    //         customer:data.customer,
-    //         collected_amount:data.collected_amount
-    //       })
-    //       setModalVisible(true)          
-    //   }
-    //   else if(response.status == 400){
-    //     showErrorToast()
+    try {
+      let response = await fetch(apiUrl + "api/collectedcustomers", {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+          Authorization: "Token " + token,
+        },
+        body: JSON.stringify({
+          collected_amount: cusdetail.payment_amount,
+          customer: cusdetail.cus_id,
+          collector:cid,
+        }),
+      })
+      let data = await response.json()
+      if(response.ok){
+          setRes({
+            customer:data.customer,
+            collected_amount:data.collected_amount
+          })
+          setModalVisible(true)          
+      }
+      else if(response.status == 400){
+        showToast(JSON.stringify(data))
 
           
-    //   }else{
-    //     showToast("No reesponse from the server")
-    //   }
+      }else{
+        showToast("No response from the server")
+      }
        
-    // } catch (error) {
-    //   showToast(error.message)
+    } catch (error) {
+      showToast(error.message)
 
       
-    // }
+    }
   }
+    //submiting Collection
+    async function submitCollection() {
+      try {
+        await fetch(apiUrl+"api/collectionreports/", {
+          method: "POST",
+          headers: {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+            Authorization: "Token " + token,
+          },
+        })
+          .then((res) => res.json())
+          .then((data) => {
+            if (data == "Customers list empty") {
+              showToast("Already Submitted");
+            } else {
+              showToast("Collection Successfully Submitted !");
+            }
+          })
+          .catch((error) => {
+            showToast(error.message)
+          });
+      } catch (error) {
+        showToast(error.message)
+      }
+    }
+
+    //FilterByValue Function
+  const autoFillFunction = () => {
+
+        var resData = customerlist.filter(obj =>{
+          return obj.id === parseInt(cusdetail.cus_id)
+        })
+       if(resData != ''){
+  
+        SetCusDetail({
+          ...cusdetail,
+          boxno: resData[0].setupbox,
+          payment_amount: resData[0].payment_amount.toString(),
+          
+        })
+       }else{
+        SetCusDetail({
+          cus_id:'',
+          payment_amount:'',
+          payment_status:'paid',
+          payment_date:date,
+          boxno:''
+        });
+        showToast("Customer Id Does not Exist")
+       }
+       
+        
+  };
+
+
 
   useEffect(() => {
     async function getCollectorId(){
@@ -130,7 +211,7 @@ export default function CollectPaymentScreen() {
           headers: {
             Accept: "application/json",
             "Content-Type": "application/json",
-            //Authorization: "Token " + token,
+            Authorization: "Token " + token,
           },
           
         })
@@ -139,7 +220,7 @@ export default function CollectPaymentScreen() {
           setCID(res["userid"])
         }else{
 
-        }
+        } 
          
         
       }catch (error) {
@@ -149,34 +230,23 @@ export default function CollectPaymentScreen() {
         
 
     }
-    
-  if(sendPaymentUpdate){
-    sendUpdate();
-    //Send Collected
-    setTimeout(() =>{
-      sendCollected()
-      SetCusDetail({
-        cus_id:'',
-        payment_amount:'',
-        payment_status:'paid',
-        payment_date:date
-      });
       
-      
+    if(sendPaymentUpdate){
+      sendUpdate();
 
-    },2000)
-    
-        
-  }
+             
+    }
 
     setTimeout(() =>{
         setModalVisible(false)
-    },9000)
+    },8000)
       setSendPaymentUpdate(false)
     
-      if(cid == ''){
+
+    if(cid == ''){
         getCollectorId()
-      }
+      
+    }
 
     
       
@@ -207,48 +277,58 @@ export default function CollectPaymentScreen() {
       ToastAndroid.LONG,
       ToastAndroid.BOTTOM,
       25,
-      200
+      150
     );
   };
   return (
     <KeyboardAvoidingView>
-      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-      <SafeAreaView style={{height:"100%"}}>
-        <ScrollView >
+      
+      <SafeAreaView>
+        <ScrollView>
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
           <View style={styles.container}>
             
            
             <View style={styles.box}>
+            <TouchableOpacity 
+            style={{
+              zIndex:1,position:'absolute',top:68,right:15,
+            }}
+            onPress={()=>{ 
+              handleViewRef.current.rotate()
+              autoFillFunction()
+              
+            }}
+            >
+            <Animatable.View  ref={handleViewRef}
+
+            >
+           
+             <MICon name="autorenew" size={33} color="red" />
+           
+
+            </Animatable.View>
+            </TouchableOpacity>
               <Text style={styles.label}>Customer Id:</Text>
               <TextInput
-                style={{
-                  height: 50,
-                  width: 200,
-                  borderColor: "#F0057E",
-                  borderWidth: 2,
-                  borderRadius: 5,
-                  padding: 10,
-                  marginTop: 6,
-                  fontSize:18,
-                }}
+               style={styles.textInput}
                 keyboardType="numeric"
                 placeholder="Customer Id."
                 name="cus_id"
                 onChangeText={(txt) => handleChange("cus_id", txt)}
                 value={cusdetail.cus_id}
               />
+              <Text style={styles.label}>STB No:</Text>
+              <TextInput
+                style={styles.textInput}
+                placeholder="STB No."
+                name="stbno"
+                onChangeText={(txt) => handleChange("boxno", txt)}
+                value={cusdetail.boxno}
+              />
               <Text style={styles.label}>Collected Amount:</Text>
               <TextInput
-                style={{
-                    height: 50,
-                    width: 200,
-                    borderColor: "#F0057E",
-                    borderWidth: 2,
-                    borderRadius: 5,
-                    padding: 10,
-                    marginTop: 6,
-                    fontSize:18,
-                }}
+                style={styles.textInput}
                 placeholder="Collected Amount."
                 name="payment_amount"
                 keyboardType="numeric"
@@ -257,16 +337,7 @@ export default function CollectPaymentScreen() {
               />
               <Text style={styles.label}>Payment Status:</Text>
               <TextInput
-                style={{
-                    height: 50,
-                    width: 200,
-                    borderColor: "#F0057E",
-                    borderWidth: 2,
-                    borderRadius: 5,
-                    padding: 10,
-                    marginTop: 6,
-                    fontSize:18,
-                }}
+                style={styles.textInput}
                 placeholder="paid"
                 onChangeText={(txt) => handleChange("payment_status", txt)}
                 value={cusdetail.payment_status}
@@ -274,16 +345,7 @@ export default function CollectPaymentScreen() {
               />
               <Text style={styles.label}>Payment Date:</Text>
               <TextInput
-                style={{
-                    height: 50,
-                    width: 200,
-                    borderColor: "#F0057E",
-                    borderWidth: 2,
-                    borderRadius: 5,
-                    padding: 10,
-                    marginTop: 6,
-                    fontSize:18,
-                }}
+                style={styles.textInput}
                 placeholder="paid"
                 onChangeText={(txt) => handleChange("payment_date", txt)}
                 name="payment_date"
@@ -306,9 +368,16 @@ export default function CollectPaymentScreen() {
               >
                 <Text style={styles.btnText}>Collect</Text>
               </TouchableOpacity>
+              <Button 
+              mode="contained" 
+              icon="arrow-right-circle"
+              onPress={() => submitCollection()}
+              style={{borderRadius:20,height:40,alignItems:'center',justifyContent:'center'}}
+              >
+                Submit Collection
+              </Button>
             </View>
-           
-      <View style={styles.centeredView}>
+            <View style={styles.centeredView}>
               <Modal
                 animationType="fade"
                 transparent={true}
@@ -327,17 +396,32 @@ export default function CollectPaymentScreen() {
               </Modal>
 
      
-        </View> 
+        </View>     
+      
           </View>
+          </TouchableWithoutFeedback>
           </ScrollView>
           </SafeAreaView>
-      </TouchableWithoutFeedback>
+      
     </KeyboardAvoidingView>
   );
 }
 const styles = StyleSheet.create({
+  textInput:{
+    height: 40,
+    width: 250,
+    borderColor: "#F0057E",
+    borderWidth: 2,
+    borderRadius: 5,
+    padding: 10,
+    marginTop: 6,
+    fontSize:20,
+    borderRadius:25,
+    paddingLeft:20,
+    marginBottom:5,
+    color:'#8e2de2'
+  },
   container: {
-    paddingTop: 10,
     width: Dimensions.get("window").width, //for full screen
     height: "100%", //for full screen
     alignItems: "center",
@@ -348,7 +432,7 @@ const styles = StyleSheet.create({
   },
   box: {
     padding: 30,
-    width: "80%",
+    width: "90%",
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 1,
@@ -368,9 +452,9 @@ const styles = StyleSheet.create({
   },
   label: {
     marginTop: 6,
-    fontSize: 20,
-    fontWeight:'bold',
-    color:'black'
+    fontSize: 18,
+    color:'black',
+    textTransform:'uppercase'
     
   },
   btn: {
@@ -384,12 +468,13 @@ const styles = StyleSheet.create({
   },
   btnCollect: {
     marginTop: 15,
-    width: 80,
+    width: 150,
     height: 40,
     justifyContent: "center",
     alignItems: "center",
     backgroundColor: "#00bf8f",
-    borderRadius: 6,
+    borderRadius: 25,
+    marginBottom:20,
   },
   btnText: {
     fontSize: 20,
