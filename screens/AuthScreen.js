@@ -66,9 +66,15 @@ export default function AuthScreen() {
                     visible:true,
                     message:"Invalid username or password !"
                 })
-            },2000)
+            },1000)
            
             
+        }else{
+            _hideModal()
+                setSnack({
+                    visible:true,
+                    message:"Invalid username or password !"
+                })
         }
     }
 
@@ -235,7 +241,7 @@ const styles = StyleSheet.create({
     container:{
         flex:2,
         width:Dimensions.get('screen').width,
-        height:Dimensions.get('screen').height-300,
+        height:Dimensions.get('screen').height-250,
         alignItems: "center",
         padding: 25,
         backgroundColor: "white",

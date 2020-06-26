@@ -1,33 +1,106 @@
-import React,{useReducer,useContext} from 'react'
+import React,{useReducer,useContext, useState} from 'react'
+import {View,Text,ToastAndroid} from 'react-native'
+import {Snackbar} from 'react-native-paper'
 import {MainContext} from './MainContext'
 import MainReducer from './MainReducer'
 import {apiUrl} from '../../Constants'
 import {AuthContext} from '../context'
+import moment from 'moment'
+import AsyncStorage from '@react-native-community/async-storage'
 const MainState = props =>{
   const authContext = useContext(AuthContext)
   const {token} = authContext;
 
+  const _storeData = async (key,res) => {
+    try {
+      await AsyncStorage.setItem(key,JSON.stringify(res))
+      console.log(key+' Data successfully saved')
+
+     
+    } catch (e) {
+      console.log('Failed to save the data to the storage')
+    }
+   
+  };
+ 
+
+
     const initialState = {
-        
-        'stblist':[],
+
         'customerlist':[],
+        'customerDetails':null,
+        'cid':'',
         'error':'',
         'filtered':'',
-        'snackVisible':false,
-        'snackText':'',
-        'snackColor':true,
+        'delid':'',
+        'isAdded':false,
+        'isDelete':false,
+        'isEdited':false,
+
+
+        'packagelist':[],
+        'channellist':[],
+        'packarray':[],
+        'channelarray':[],
+        'packagecost':0,
+        'channelcost':0,
       
       }
-    
-    const[state,dispatch] = useReducer(MainReducer,initialState);
-    //Snack
-     const setSnackDetails = (snack) =>{
-        dispatch({type:'SET_SNACK',payload:snack})
-     }
+     const showToast = (res) => {
 
-     const resetSnackDetails = () =>{
-       dispatch({type:'RESET_SNACK'})
-     }
+    ToastAndroid.showWithGravityAndOffset(
+      res,
+      ToastAndroid.LONG,
+      ToastAndroid.BOTTOM,
+      25,
+      180
+    );
+  };
+    const[state,dispatch] = useReducer(MainReducer,initialState);
+
+
+    //Reset
+    const resetCustomerDetails = () =>{
+      dispatch({type:'RESET_CDS'})
+    }
+    const resetPackDetails = () =>{
+      dispatch({type:'RESET_PACK_DETAILS'})
+    }
+
+    //Set States
+    const setPackages = (res) =>{
+      dispatch({type:'GET_PACKAGES',payload:res})
+    }
+    const setChannels = (res) =>{
+      dispatch({type:'GET_CHANNELS',payload:res})
+    }
+    const setCustomers = (res) =>{
+      dispatch({type:'GET_CUSTOMERS',payload:res})
+    }
+    const setUserId = (res) =>{
+      dispatch({type:'SET_USER_ID',payload:res})
+    }
+
+
+    const setPackArray = (pack) =>{
+      dispatch({type:'SET_PACK_ARRAY',payload:pack})
+    }
+    const setChannelArray = (chan) =>{
+      dispatch({type:'SET_CHANNEL_ARRAY',payload:chan})
+    }
+   
+     const setIsAdded = (value) =>{
+      dispatch({type:'SET_IS_ADDED',payload:value})
+    }
+    const setIsDeleted = (value,delid="") =>{
+      dispatch({type:'SET_IS_DELETED',payload:{"value":value,"id":delid}})
+    }
+    const setPackageCost = (cost) =>{
+      dispatch({type:'SET_PACKAGE_COST',payload:cost})
+    }
+    const setChannelCost = (cost) =>{
+      dispatch({type:'SET_CHANNEL_COST',payload:cost})
+    }
     
     //set error
 
@@ -36,6 +109,13 @@ const MainState = props =>{
     }
 
     //On New Customer Added
+    const setCustomerDetails= data =>{
+      dispatch({type:'SET_CDS',payload:data})
+    }
+
+    const setIsEdited = (val) =>{
+      dispatch({type:'SET_IS_EDITED',payload:val})
+    }
     const onAddCustomer = ()=>{
       
       getCustomerList()
@@ -59,106 +139,45 @@ const MainState = props =>{
           });
           let res = await response.json();
           if (response.ok) {
-            
-            dispatch({type:'GET_CUSTOMERS',payload:res.results})
+            _storeData('customers',res)
+            dispatch({type:'GET_CUSTOMERS',payload:res})
           }else{
-            dispatch({type:'ERROR_STATUS',payload:res.results})
+            dispatch({type:'ERROR_STATUS',payload:res})
           }
         } catch (error) {
             dispatch({type:'ERROR_STATUS',payload:error.messages})
       }
     }
 
-    //Delete customer Request
-  async function deleteCustomerDetails(delid) {
+  //Get User ID
+
+  async function getCollectorId(){
     try {
-      let response = await fetch(apiUrl + 'api/customers/' + delid, {
-        method: 'DELETE',
+      let response = await fetch(apiUrl + "api/getuserid",{
+        method: "GET",
         headers: {
-          Accept: 'application/json',
-          'Content-Type': 'application/json',
-          Authorization: 'Token ' + token,
+          Accept: "application/json",
+          "Content-Type": "application/json",
+          Authorization: "Token " + token,
         },
-      });
-
-      if (response.ok) {
-        setSnackText('Customer Deleted Successfully');
-        setVisible(true);
-      } else if (response.status == 400) {
-        setSnackText('Something went wrong');
-        setVisible(true);
-      }
-    } catch (error) {
-      showToast(error.message);
+        
+      })
+      let res = await response.json()
+      if(response.ok){
+        
+        _storeData('userid',res["userid"])
+        setUserId(res["userid"])
+      }else{
+          showToast(JSON.stringify(res))
+      } 
+       
+      
+    }catch (error) {
+      showToast(error)
+      
     }
-  }
-  //Send Update Details To Server
-  async function updateCustomerDetails(cusState) {
-    var isnum = /^\d+$/.test(cusState.stbno);
-    var ph = /^\d+$/.test(cusState.phone);
-    let response;
-    try {
-      {
-        isnum
-          ? (response = await fetch(apiUrl + 'api/customers/' + cusState.id, {
-              method: 'PUT',
-              headers: {
-                Accept: 'application/json',
-                'Content-Type': 'application/json',
-                Authorization: 'Token ' + token,
-              },
-              body: JSON.stringify({
-                name: cusState.name,
-                street: cusState.street,
-                phone: ph ? cusState.phone : '0',
-                payment_amount: cusState.payment_amount,
-                setupbox: stbno,
-              }),
-            }))
-          : (response = await fetch(apiUrl + 'api/customers/' + id, {
-              method: 'PUT',
-              headers: {
-                Accept: 'application/json',
-                'Content-Type': 'application/json',
-                Authorization: 'Token ' + token,
-              },
-              body: JSON.stringify({
-                name: cusState.name,
-                street: cusState.street,
-                payment_amount: cusState.payment_amount,
-                phone: ph ? cusState.phone : '0',
-              }),
-            }));
-      }
+      
 
-      if (response.ok) {
-        setOnAddCus(true);
-        setOnEdit(false);
-        editfilter();
-        setSnackText('Customer Detail Update Successfully');
-        setVisible(true);
-      } else if (response.status == 400) {
-        let res = await response.json();
-        setModalVisible(!modalVisible);
-        setOnEdit(false);
-        if (res.setupbox) {
-          showToast('This Setupbox is already assigned');
-        } else {
-          showToast(JSON.stringify(res));
-        }
-        CustomerResetFunction(); //Reset Customer State
-      } else {
-        setModalVisible(!modalVisible);
-        setOnEdit(false);
-        showToast('No response from the server');
-        CustomerResetFunction(); //Reset Customer State
-      }
-    } catch (error) {
-      setModalVisible(!modalVisible);
-      setOnEdit(false);
-      showToast(error.message);
-      CustomerResetFunction(); //Reset Customer State
-    }
   }
 
   
@@ -166,6 +185,7 @@ const MainState = props =>{
 
   async function postCustomer(cusState) {
     console.log("post Called")
+ 
     try {
       let response = await fetch(apiUrl + 'api/customers', {
         method: 'POST',
@@ -179,51 +199,140 @@ const MainState = props =>{
           name: cusState.name.toUpperCase(),
           street: cusState.street.toUpperCase(),
           phone: cusState.phone,
-          setupbox: cusState.stbno,
+          stbno: cusState.stbno.toUpperCase(),
+          customer_type:cusState.customer_type,
+          payment_date:moment().format(),
           payment_amount: cusState.payment_amount,
-          payment_status:cusState.payment_status == true?'paid':'unpaid'
+          additional_price:cusState.additional_price,
+          payment_status:cusState.payment_status == true?'paid':'unpaid',
+          packages:state.packarray,
+          channels:state.channelarray,
+          gst_price:cusState.gst_price,
         }),
       });
       let res = await response.json()
       if (response.ok) {
-          var snack = {
-            "snackVisible":true,
-            "snackText":'Customer Added Successfully',
-            'snackColor':true,
+        resetPackDetails();
+        setIsAdded(true)
+        showToast("Customer Added Successfully")
 
-          }
-          setSnackDetails(snack)
       } else if (response.status == 400) {
-        var snack = {
-          "snackVisible":true,
-          "snackText":JSON.stringify(res),
-          'snackColor':false,
-        }
-        setSnackDetails(snack)
-        setErrorResponse(res)
-      } else {
-        setErrorResponse("Something Went Wrong ! Please Try Again Later .")
+        showToast(JSON.stringify(res))
+
+      } else if (response.status == 403) {
+        showToast(JSON.stringify(res))
+
+      }
+       else {
+        showToast("Something Went Wrong ! Please Try Again Later .")
       }
     } catch (error) {
-      setErrorResponse(error.messages)
+      showToast(error.messages)
       
     }
   }
+ 
+
+    //Packages
+
+    //Get Packages
+    async function getPackagesList() {
+      console.log('called')
+      try {
+        let response = await fetch(apiUrl+"api/packages", {
+          method: "GET",
+          headers: {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+            Authorization:"Token "+token
+          },
+        });
+        let res = await response.json();
+        if (response.ok) {
+          res = res.map(item =>{
+            item.isSelect = false;
+            return item
+          })
+
+          _storeData('packages',res)
+          dispatch({type:'GET_PACKAGES',payload:res})
+        }else{
+          dispatch({type:'ERROR_STATUS',payload:res})
+        }
+      } catch (error) {
+          dispatch({type:'ERROR_STATUS',payload:error.messages})
+    }
+  }
+  async function getChannelsList() {
+    try {
+      let response = await fetch(apiUrl+"api/channels", {
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+          Authorization:"Token "+token
+        },
+      });
+      let res = await response.json();
+      if (response.ok) {
+
+        res = res.map(item =>{ 
+            item.isSelect=false;
+            return item
+        })
+       
+        _storeData('channels',res)
+        dispatch({type:'GET_CHANNELS',payload:res})
+      }else{
+        dispatch({type:'ERROR_STATUS',payload:res})
+      }
+    } catch (error) {
+        dispatch({type:'ERROR_STATUS',payload:error.messages})
+  }
+}
+ 
+
     return(
         <MainContext.Provider value={{
             customerlist:state.customerlist,
-            stblist:state.stblist,
+            packagelist:state.packagelist,
+            channellist:state.channellist,
+            packagecost:state.packagecost,
+            channelcost:state.channelcost,
             error:state.error,
-            snackVisible:state.snackVisible,
-            snackText:state.snackText,
-            snackColor:state.snackColor,
-            setSnackDetails,
-            resetSnackDetails, 
+            customerDetails:state.customerDetails,
+            isAdded:state.isAdded,
+            isEdited:state.isEdited,
+            isDeleted:state.isDeleted,
+            delid:state.delid,
+            cid:state.cid,
+            setUserId,
+            setIsAdded,
+            setIsDeleted,
+            setIsEdited,
+            //Customers Functions
+            setCustomerDetails,
             getCustomerList,
-            deleteCustomerDetails,
+            getCollectorId,
             onAddCustomer,
             onAddSetupbox,
-            postCustomer
+            postCustomer,
+
+
+            packarray:state.packarray,
+            channelarray:state.channelarray,
+            setChannelArray,
+            setPackArray,
+            getChannelsList,
+            getPackagesList,
+            setPackageCost,
+            setChannelCost,
+            resetPackDetails,
+            resetCustomerDetails,
+            setPackages,
+            setChannels,
+            setCustomers,
+            
 
         }}>
             {props.children}

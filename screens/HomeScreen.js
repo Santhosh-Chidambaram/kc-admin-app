@@ -15,8 +15,13 @@ import { apiUrl } from "../Constants";
 import Icon from 'react-native-vector-icons/FontAwesome'
 import MCIcon from 'react-native-vector-icons/MaterialCommunityIcons'
 import { AuthContext } from "./context";
+import LinearGradient from 'react-native-linear-gradient';
 
-
+function wait(timeout) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, timeout);
+  });
+}
 
 
 //Home Screen
@@ -24,6 +29,15 @@ function HomeScreen({ navigation }) {
   //Context
   const authContext = useContext(AuthContext)
   const {token} = authContext;
+
+  //Refresh control
+    const [refreshing, setRefreshing] = React.useState(false);
+    const onRefresh = React.useCallback(() => {
+       setRefreshing(true);
+       getShareAmount()
+   
+       wait(2000).then(() => setRefreshing(false));
+     }, [refreshing]);
 
   //States
   const [dash, setDash] = useState({
@@ -65,8 +79,8 @@ function HomeScreen({ navigation }) {
           coll_percent: coll_percent,
           paidcount: json.paidcount,
           unpaidcount: json.unpaidcount,
-          active: json.stbactive,
-          deactive: json.stbdeactive,
+          active: json.active,
+          deactive: json.deactive,
           amount: json.amount,
           customers: json.customers,
           total: json.total,
@@ -100,8 +114,11 @@ function HomeScreen({ navigation }) {
  
   return (
     <SafeAreaView>
-      <ScrollView>
-        <StatusBar backgroundColor="#fafafa" barStyle="dark-content" />
+      <ScrollView refreshControl={
+                <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+              }>
+        <StatusBar backgroundColor="#7F00FF" barStyle="light-content" />
+        <LinearGradient colors={['#7F00FF', '#8e2de2', '#7F00FF']} style={styles.linearGradient}>
         <View style={styles.container}>
           <TouchableOpacity style={styles.box}>
             <View style={{ position: "relative", paddingLeft: "10%" }}>
@@ -194,7 +211,7 @@ function HomeScreen({ navigation }) {
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.dashBox}
-            onPress={() => navigation.navigate('Setupbox')}
+            
           >
             <View style={{
                 position: "absolute",
@@ -298,7 +315,11 @@ function HomeScreen({ navigation }) {
               </Text>
             </View>
           </TouchableOpacity>
+          
+         
+    
         </View>
+        </LinearGradient>
       </ScrollView>
     </SafeAreaView>
   );
@@ -308,7 +329,7 @@ export default HomeScreen;
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: "#8e2de2",
+    //backgroundColor: "#7F00FF",
     height: "100%",
     alignItems: "center",
     marginBottom:20,
